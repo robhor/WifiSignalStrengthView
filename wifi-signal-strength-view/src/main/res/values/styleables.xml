@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="WifiSignalStrengthView">
+        <attr name="fillColor" format="color" />
+        <attr name="unfilledColor" format="color" />
+        <attr name="fill" format="fraction" />
+        <attr name="strikeThrough" format="boolean" />
+        <attr name="autoUpdating" format="boolean" />
+    </declare-styleable>
+</resources>
