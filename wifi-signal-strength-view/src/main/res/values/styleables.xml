@@ -2,9 +2,9 @@
 <resources>
     <declare-styleable name="WifiSignalStrengthView">
         <attr name="fillColor" format="color" />
-        <attr name="unfilledColor" format="color" />
-        <attr name="fill" format="fraction" />
-        <attr name="strikeThrough" format="boolean" />
+        <attr name="backgroundColor" format="color" />
         <attr name="autoUpdating" format="boolean" />
+        <attr name="fill" format="fraction" />
+        <attr name="wifiOff" format="boolean" />
     </declare-styleable>
 </resources>

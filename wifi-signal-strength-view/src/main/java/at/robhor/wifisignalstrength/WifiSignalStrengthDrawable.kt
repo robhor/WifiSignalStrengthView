@@ -3,7 +3,7 @@ package at.robhor.wifisignalstrength
 import android.animation.ValueAnimator
 import android.graphics.*
 import android.graphics.drawable.Drawable
-import kotlin.properties.Delegates
+import kotlin.properties.Delegates.observable
 
 /**
  * Draws a wifi icon, with some fill representing the signal strength, and an animatable strikethrough.
@@ -13,11 +13,14 @@ import kotlin.properties.Delegates
 class WifiSignalStrengthDrawable : Drawable() {
     var filled = 0.7f
         set(value) {
-            field = maxOf(0f, minOf(value, 1f))
-            invalidateSelf()
+            val newFilled = maxOf(0f, minOf(value, 1f))
+            if (field != newFilled) {
+                field = newFilled
+                invalidateSelf()
+            }
         }
 
-    private val strikeThroughAnimator = ValueAnimator.ofFloat(0f, 1f)
+    private val strikeThroughAnimator: ValueAnimator
 
     var strikeThrough = false
         set(value) {
@@ -31,73 +34,68 @@ class WifiSignalStrengthDrawable : Drawable() {
             invalidateSelf()
         }
 
-    var backgroundColor by Delegates.observable(Color.argb(50, 0, 0, 0), { _, _, _ -> invalidateSelf() })
-    var fillColor by Delegates.observable(Color.BLACK, { _, _, _ -> invalidateSelf() })
+    var backgroundColor by observable(Color.argb(50, 0, 0, 0), { _, _, _ -> invalidateSelf() })
+    var fillColor by observable(Color.BLACK) { _, _, _ -> invalidateSelf() }
 
     private val sweepAngle = 75f
-    private val radius = 1f
+    private var radius = 1f
     private val rectF = RectF()
     private val boundsF = RectF()
     private val matrix = Matrix()
-    private val paint = Paint()
 
-    private val arcPath = Path()
-    private val strikePath = Path()
+    private val paint = Paint()
 
     init {
         paint.isAntiAlias = true
+        strikeThroughAnimator = ValueAnimator.ofFloat(0f, 1f)
         strikeThroughAnimator.addUpdateListener { invalidateSelf() }
     }
 
     override fun draw(canvas: Canvas) {
+        radius = minOf(bounds.width(), bounds.height()).toFloat()
         boundsF.set(bounds)
-
-        arcPath.rewind()
-        arcPath.moveTo(0f, 0f)
-        rectF.set(-radius, -radius, radius, radius)
-        arcPath.arcTo(rectF, -90 + sweepAngle / 2, -sweepAngle)
-        arcPath.close()
-        val thickness = 0.05f * radius
-
-        val strikeLength = strikeThroughAnimator.animatedValue as Float
-
-        if (strikeLength > 0f) {
-            matrix.setScale(strikeLength, 1f)
-            matrix.postTranslate(-radius * 1.05f, -0.2f)
-            matrix.postRotate(90f - sweepAngle / 2f)
-
-            strikePath.rewind()
-            strikePath.addRect(0f, -thickness * 3, radius * 1.1f, thickness, Path.Direction.CCW)
-            strikePath.transform(matrix)
-
-            arcPath.op(strikePath, Path.Op.DIFFERENCE)
-
-            strikePath.rewind()
-            strikePath.addRect(0f, -thickness, radius * 1.1f, thickness, Path.Direction.CCW)
-            strikePath.transform(matrix)
-            arcPath.op(strikePath, Path.Op.UNION)
-        }
+        paint.xfermode = null
 
         val midX = radius * Math.cos(Math.toRadians(90 - sweepAngle / 2.0)).toFloat()
         rectF.set(-midX, -radius, midX, 0f)
         matrix.setRectToRect(rectF, boundsF, Matrix.ScaleToFit.CENTER)
 
-        arcPath.transform(matrix)
-        canvas.clipPath(arcPath)
+        canvas.concat(matrix)
 
-        canvas.drawColor(backgroundColor)
+        paint.color = backgroundColor
+        rectF.set(-radius, -radius, radius, radius)
+        canvas.drawArc(rectF, -90 + sweepAngle / 2, -sweepAngle, true, paint)
 
+        canvas.save()
+        val scale = filled
+        canvas.scale(scale, scale)
+        paint.color = fillColor
+        canvas.drawArc(rectF, -90 + sweepAngle / 2, -sweepAngle, true, paint)
+        canvas.restore()
 
-        if (filled >= 1f) {
-            canvas.drawColor(fillColor)
-        } else if (filled > 0f) {
-            arcPath.rewind()
-            arcPath.addCircle(0f, 0f, radius * filled, Path.Direction.CW)
-            arcPath.transform(matrix)
+        canvas.rotate(90 - sweepAngle / 2)
+        canvas.translate(-radius, -radius / 4)
 
-            paint.color = fillColor
-            canvas.drawPath(arcPath, paint)
-        }
+        paint.color = backgroundColor
+        paint.isAntiAlias = false
+        paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC)
+
+        val thickness = radius / 10f
+        setStrikethroughRect(thickness)
+        canvas.drawRect(rectF, paint)
+        paint.isAntiAlias = true
+
+        canvas.translate(0f, -thickness)
+        paint.color = Color.TRANSPARENT
+        paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_OUT)
+        setStrikethroughRect(thickness * 1.1f)
+        canvas.drawRect(rectF, paint)
+    }
+
+    private fun setStrikethroughRect(thickness: Float) {
+        val extension = radius / 10f
+        val maxLength = radius * 1.2f
+        rectF.set(-extension, thickness / 2, -extension + maxLength * strikeThroughAnimator.animatedValue as Float, -thickness / 2)
     }
 
     override fun jumpToCurrentState() {
